@@ -50,11 +50,11 @@ struct address_range {
         NO_CONTENTS,  // must be uninitialized
         IGNORE        // will be ignored
     };
-    address_range(uint32_t from, uint32_t to, type type) : from(from), to(to), type(type) {}
+    address_range(uint32_t from, uint32_t to, type type) : s_from(from), s_to(to), s_type(type) {}
     address_range() : address_range(0, 0, IGNORE) {}
-    type type;
-    uint32_t to;
-    uint32_t from;
+    type s_type;
+    uint32_t s_to;
+    uint32_t s_from;
 };
 
 typedef std::vector<address_range> address_ranges;
@@ -119,8 +119,8 @@ static int read_and_check_elf32_header(FILE *in, elf32_header& eh_out) {
 
 int check_address_range(const address_ranges& valid_ranges, uint32_t addr, uint32_t vaddr, uint32_t size, bool uninitialized, address_range &ar) {
     for(const auto& range : valid_ranges) {
-        if (range.from <= addr && range.to >= addr + size) {
-            if (range.type == address_range::type::NO_CONTENTS && !uninitialized) {
+        if (range.s_from <= addr && range.s_to >= addr + size) {
+            if (range.s_type == address_range::type::NO_CONTENTS && !uninitialized) {
                 return fail(ERROR_INCOMPATIBLE, "ELF contains memory contents for uninitialized memory");
             }
             ar = range;
@@ -153,7 +153,7 @@ int read_and_check_elf32_ph_entries(FILE *in, const elf32_header &eh, const addr
                     rc = check_address_range(valid_ranges, entry.paddr, entry.vaddr, mapped_size, false, ar);
                     if (rc) return rc;
                     // we don't download uninitialized, generally it is BSS and should be zero-ed by crt0.S, or it may be COPY areas which are undefined
-                    if (ar.type != address_range::type::CONTENTS) {
+                    if (ar.s_type != address_range::type::CONTENTS) {
                         if (verbose) printf("  ignored\n");
                         continue;
                     }
@@ -208,7 +208,7 @@ int realize_page(FILE *in, const std::vector<page_fragment> &fragments, uint8_t 
 
 static bool is_address_valid(const address_ranges& valid_ranges, uint32_t addr) {
     for(const auto& range : valid_ranges) {
-        if (range.from <= addr && range.to > addr) {
+        if (range.s_from <= addr && range.s_to > addr) {
             return true;
         }
     }
@@ -217,8 +217,8 @@ static bool is_address_valid(const address_ranges& valid_ranges, uint32_t addr) 
 
 static bool is_address_initialized(const address_ranges& valid_ranges, uint32_t addr) {
     for(const auto& range : valid_ranges) {
-        if (range.from <= addr && range.to > addr) {
-            return address_range::type::CONTENTS == range.type;
+        if (range.s_from <= addr && range.s_to > addr) {
+            return address_range::type::CONTENTS == range.s_type;
         }
     }
     return false;
